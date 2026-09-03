@@ -37,6 +37,16 @@ app.add_middleware(
 )
 
 
+@app.on_event("startup")
+def _seed_on_startup():
+    # Runs in a background thread so a slow/free-tier CPU fitting forecast
+    # models doesn't delay uvicorn opening its port — see startup_seed.py.
+    import sys
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    from startup_seed import run_seed_in_background
+    run_seed_in_background()
+
+
 @app.get("/health")
 def health():
     return {"status": "ok"}
