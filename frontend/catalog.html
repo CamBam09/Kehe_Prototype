@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>KeHe Trend Tool &mdash; Catalog</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.5.1/chart.umd.min.js"></script>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #f6f5f2; color: #1f2318;
+  }
+  header {
+    background: #1f3d2b; color: #fff; padding: 20px 28px;
+  }
+  header h1 { margin: 0; font-size: 20px; font-weight: 600; }
+  header p { margin: 4px 0 0; font-size: 13px; color: #cfe0d3; }
+  main { max-width: 1080px; margin: 0 auto; padding: 24px 28px 60px; }
+  .card {
+    background: #fff; border: 1px solid #e3e0d8; border-radius: 10px;
+    padding: 18px 20px; margin-bottom: 20px;
+  }
+  .card h2 { margin: 0 0 12px; font-size: 15px; }
+  .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+  input[type=text], input[type=file] {
+    font: inherit; padding: 8px 10px; border: 1px solid #cfcabc; border-radius: 6px;
+  }
+  input[type=text] { flex: 1; min-width: 220px; }
+  button {
+    font: inherit; padding: 8px 14px; border: none; border-radius: 6px;
+    background: #2f6b45; color: #fff; cursor: pointer;
+  }
+  button.secondary { background: #6b6558; }
+  button:hover { opacity: 0.92; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid #ece9e1; }
+  th { color: #6b6558; font-weight: 600; }
+  tr.clickable { cursor: pointer; }
+  tr.clickable:hover td { background: #f1efe9; }
+  .muted { color: #8a8574; font-size: 12px; }
+  .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; background: #eef1ea; font-size: 11px; color: #3d5c45; }
+  #status { font-size: 13px; margin-top: 8px; }
+  #detail-panel { display: none; }
+  .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px,1fr)); gap: 12px; margin-bottom: 14px; }
+  .stat { background: #f6f5f0; border-radius: 8px; padding: 10px 12px; }
+  .stat .label { font-size: 11px; color: #8a8574; text-transform: uppercase; letter-spacing: .04em; }
+  .stat .value { font-size: 18px; font-weight: 600; margin-top: 2px; }
+  canvas { max-height: 320px; }
+  .badge { display: inline-block; padding: 1px 7px; border-radius: 999px; font-size: 10px; font-weight: 600; }
+  .badge.real { background: #eef1ea; color: #3d5c45; }
+  .badge.demo { background: #fbeed9; color: #8a5a1f; }
+  .no-data { color: #a89f8c; font-style: italic; }
+  .tabs { display: flex; gap: 4px; margin-top: 14px; border-bottom: 1px solid rgba(255,255,255,0.18); }
+  .tabs a {
+    padding: 8px 16px; color: #cfe0d3; font-size: 13px; text-decoration: none;
+    border-bottom: 2px solid transparent; margin-bottom: -1px;
+  }
+  .tabs a:hover { color: #fff; }
+  .tabs a.active { color: #fff; font-weight: 600; border-bottom-color: #c98a2c; }
+  .viral { font-size: 12px; }
+  .viral .flag { color: #8a5a1f; font-weight: 600; }
+  .viral-note {
+    background: #fbeed9; border: 1px solid #eecf9c; color: #6b4c17;
+    border-radius: 8px; padding: 10px 12px; font-size: 12.5px; margin-bottom: 14px;
+  }
+  .viral-note .label { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; font-weight: 600; margin-bottom: 3px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>KeHe Trend Tool</h1>
+  <p>Follow, compare, and predict food &amp; beverage product trends.</p>
+  <nav class="tabs">
+    <a href="index.html">Dashboard</a>
+    <a href="catalog.html" class="active">Catalog</a>
+  </nav>
+</header>
+
+<main>
+
+  <div class="card">
+    <h2>1. Load data</h2>
+    <p class="muted">Upload the catalog first (sku, name, brand, category, description, baseline_sales, primary_region,
+       viral_trend, source_url, data_source &mdash; only sku and name are required), then the sales history
+       (sku, region, period_date, units_sold). Products with no baseline_sales show as
+       <span class="no-data">no sales data</span> rather than zero. viral_trend is a free-text note someone
+       enters by hand when a real viral moment is known to have affected a product's sales, it isn't detected
+       automatically.</p>
+    <div class="row">
+      <span class="pill">Catalog CSV</span>
+      <input type="file" id="catalog-file" accept=".csv">
+      <button onclick="uploadCatalog()">Upload catalog</button>
+    </div>
+    <div class="row" style="margin-top:10px;">
+      <span class="pill">Sales history CSV</span>
+      <input type="file" id="sales-file" accept=".csv">
+      <button onclick="uploadSales()">Upload sales history</button>
+    </div>
+    <div id="status" class="muted"></div>
+  </div>
+
+  <div class="card">
+    <h2>2. Search the catalog</h2>
+    <div class="row">
+      <input type="text" id="search-box" placeholder="Search by name, SKU, or category&hellip;" onkeydown="if(event.key==='Enter') runSearch()">
+      <button onclick="runSearch()">Search</button>
+      <button class="secondary" onclick="loadAllProducts()">Show all products</button>
+      <button class="secondary" onclick="forecastAll()">Forecast all products</button>
+    </div>
+    <div id="results" style="margin-top:14px;"></div>
+  </div>
+
+  <div class="card" id="detail-panel">
+    <h2 id="detail-title">Product</h2>
+    <div class="stat-grid" id="detail-stats"></div>
+    <div id="viral-note"></div>
+    <canvas id="trend-chart"></canvas>
+    <div id="seasonality" style="margin-top:14px;"></div>
+  </div>
+
+</main>
+
+<script>
+// Same-origin when served by the FastAPI app itself (production and `uvicorn`
+// serving the frontend too); falls back to localhost:8000 only when this file
+// is opened directly from disk (file://) for local frontend-only editing.
+const API_BASE = location.protocol.startsWith("http") ? "" : "http://localhost:8000";
+let chart = null;
+const MONTHS = ["","Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+function setStatus(msg, isError) {
+  const el = document.getElementById("status");
+  el.textContent = msg;
+  el.style.color = isError ? "#a33" : "#6b6558";
+}
+
+async function uploadCatalog() {
+  const fileInput = document.getElementById("catalog-file");
+  if (!fileInput.files.length) return setStatus("Choose a catalog CSV first.", true);
+  const form = new FormData();
+  form.append("file", fileInput.files[0]);
+  try {
+    const res = await fetch(`${API_BASE}/ingest/catalog`, { method: "POST", body: form });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || "Upload failed");
+    setStatus(`Loaded ${data.products_loaded} products.` + (data.warnings.length ? ` ${data.warnings.length} warning(s).` : ""));
+  } catch (e) {
+    setStatus(e.message, true);
+  }
+}
+
+async function uploadSales() {
+  const fileInput = document.getElementById("sales-file");
+  if (!fileInput.files.length) return setStatus("Choose a sales history CSV first.", true);
+  const form = new FormData();
+  form.append("file", fileInput.files[0]);
+  try {
+    const res = await fetch(`${API_BASE}/ingest/sales`, { method: "POST", body: form });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || "Upload failed");
+    setStatus(`Loaded ${data.sales_records_loaded} sales records.` + (data.warnings.length ? ` ${data.warnings.length} warning(s).` : ""));
+  } catch (e) {
+    setStatus(e.message, true);
+  }
+}
+
+function baselineCell(p) {
+  return p.baseline_sales === null || p.baseline_sales === undefined
+    ? `<span class="no-data">no sales data</span>`
+    : p.baseline_sales;
+}
+
+function sourceBadge(p) {
+  return p.data_source === "kehe_public_marketing_page"
+    ? `<span class="badge real">KeHE public page</span>`
+    : p.data_source === "synthetic_demo"
+      ? `<span class="badge demo">demo data</span>`
+      : "";
+}
+
+function escapeHtml(s) {
+  const div = document.createElement("div");
+  div.textContent = s;
+  return div.innerHTML;
+}
+
+function viralTrendCell(p) {
+  if (!p.viral_trend) return `<span class="no-data">none documented</span>`;
+  const short = p.viral_trend.length > 60 ? p.viral_trend.slice(0, 57) + "&hellip;" : escapeHtml(p.viral_trend);
+  return `<span class="viral"><span class="flag">&#9679;</span> ${short}</span>`;
+}
+
+function renderProductRows(products, scores) {
+  const container = document.getElementById("results");
+  if (!products.length) {
+    container.innerHTML = `<p class="muted">No products found.</p>`;
+    return;
+  }
+  const rows = products.map((p, i) => `
+    <tr class="clickable" onclick="showProduct(${p.id})">
+      <td>${p.sku}</td>
+      <td>${p.name}</td>
+      <td>${p.brand || ""}</td>
+      <td>${p.category || ""}</td>
+      <td>${baselineCell(p)}</td>
+      <td>${viralTrendCell(p)}</td>
+      <td>${sourceBadge(p)}</td>
+      ${scores ? `<td>${scores[i]}</td>` : ""}
+    </tr>`).join("");
+  container.innerHTML = `
+    <table>
+      <thead><tr><th>SKU</th><th>Name</th><th>Brand</th><th>Category</th><th>Baseline sales</th><th>Viral trend</th><th>Source</th>${scores ? "<th>Match</th>" : ""}</tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+async function runSearch() {
+  const q = document.getElementById("search-box").value.trim();
+  if (!q) return loadAllProducts();
+  const res = await fetch(`${API_BASE}/search?q=${encodeURIComponent(q)}`);
+  const data = await res.json();
+  renderProductRows(data.map(r => r.product), data.map(r => r.score));
+}
+
+async function loadAllProducts() {
+  const res = await fetch(`${API_BASE}/products`);
+  const data = await res.json();
+  renderProductRows(data, null);
+}
+
+async function forecastAll() {
+  setStatus("Running forecasts for every product…");
+  const res = await fetch(`${API_BASE}/forecast/all`, { method: "POST" });
+  const data = await res.json();
+  setStatus(`Forecasted ${data.products_forecasted} products (${data.forecast_rows_written} forecast rows).`);
+}
+
+async function showProduct(id) {
+  const res = await fetch(`${API_BASE}/products/${id}`);
+  const data = await res.json();
+  const panel = document.getElementById("detail-panel");
+  panel.style.display = "block";
+  document.getElementById("detail-title").textContent = `${data.product.name} (${data.product.sku})`;
+
+  document.getElementById("detail-stats").innerHTML = `
+    <div class="stat"><div class="label">Brand</div><div class="value" style="font-size:14px;">${data.product.brand || "&mdash;"}</div></div>
+    <div class="stat"><div class="label">Category</div><div class="value" style="font-size:14px;">${data.product.category || "&mdash;"}</div></div>
+    <div class="stat"><div class="label">Baseline sales</div><div class="value" style="font-size:14px;">${baselineCell(data.product)}</div></div>
+    <div class="stat"><div class="label">Source</div><div class="value" style="font-size:14px;">${sourceBadge(data.product) || "&mdash;"}</div></div>
+  `;
+  if (data.product.source_url) {
+    document.getElementById("detail-stats").innerHTML += `
+      <div class="stat"><div class="label">Product link</div><div class="value" style="font-size:12px; font-weight:400;"><a href="${data.product.source_url}" target="_blank" rel="noopener">${data.product.source_url}</a></div></div>`;
+  }
+
+  document.getElementById("viral-note").innerHTML = data.product.viral_trend
+    ? `<div class="viral-note"><div class="label">Viral trend documented</div>${escapeHtml(data.product.viral_trend)}</div>`
+    : "";
+
+  const canvas = document.getElementById("trend-chart");
+  if (chart) { chart.destroy(); chart = null; }
+
+  if (!data.history.length) {
+    canvas.style.display = "none";
+    document.getElementById("seasonality").innerHTML =
+      `<p class="muted">No sales history loaded for this product yet` +
+      (data.product.data_source === "kehe_public_marketing_page"
+        ? ` (it came from KeHE's public marketing pages, which don't include sales figures). Upload a sales CSV for this SKU to see trends here.`
+        : `. Upload a sales history CSV for this SKU to see trends here.`) +
+      `</p>`;
+    return;
+  }
+  canvas.style.display = "block";
+
+  // Combine history + forecast for the first region present (keeps the demo simple; the API returns all regions)
+  const regions = [...new Set(data.history.map(h => h.region).concat(data.forecast.map(f => f.region)))];
+  const region = regions[0];
+  const hist = data.history.filter(h => h.region === region).sort((a,b) => a.period_date.localeCompare(b.period_date));
+  const fc = data.forecast.filter(f => f.region === region).sort((a,b) => a.period_date.localeCompare(b.period_date));
+
+  const labels = hist.map(h => h.period_date).concat(fc.map(f => f.period_date));
+  const actual = hist.map(h => h.units_sold).concat(fc.map(() => null));
+  const predicted = hist.map(() => null).concat(fc.map(f => f.predicted_units));
+
+  chart = new Chart(canvas, {
+    type: "line",
+    data: {
+      labels,
+      datasets: [
+        { label: `Actual units sold (${region})`, data: actual, borderColor: "#2f6b45", backgroundColor: "transparent", spanGaps: false },
+        { label: `Forecast (${region})`, data: predicted, borderColor: "#c98a2c", borderDash: [6,4], backgroundColor: "transparent", spanGaps: false },
+      ]
+    },
+    options: { responsive: true, interaction: { mode: "index", intersect: false } }
+  });
+
+  const seasonHtml = data.seasonality.map(s => `
+    <div class="stat" style="display:inline-block; margin-right:10px;">
+      <div class="label">${s.region}</div>
+      <div class="value" style="font-size:13px;">
+        Peaks in ${MONTHS[s.peak_month]} (avg ${s.peak_avg_units}) &middot;
+        lowest in ${MONTHS[s.trough_month]} (avg ${s.trough_avg_units})
+      </div>
+    </div>`).join("");
+  document.getElementById("seasonality").innerHTML = data.seasonality.length
+    ? `<h2 style="font-size:14px;">Seasonality</h2>${seasonHtml}`
+    : `<p class="muted">Not enough history yet to detect seasonality. Run a forecast first if you haven't.</p>`;
+}
+
+loadAllProducts();
+</script>
+
+</body>
+</html>

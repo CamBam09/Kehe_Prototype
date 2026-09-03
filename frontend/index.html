@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>KeHe Trend Tool</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.5.1/chart.umd.min.js"></script>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #f6f5f2; color: #1f2318;
+  }
+  header {
+    background: #1f3d2b; color: #fff; padding: 20px 28px;
+  }
+  header h1 { margin: 0; font-size: 20px; font-weight: 600; }
+  header p { margin: 4px 0 0; font-size: 13px; color: #cfe0d3; }
+  .tabs { display: flex; gap: 4px; margin-top: 14px; border-bottom: 1px solid rgba(255,255,255,0.18); }
+  .tabs a {
+    padding: 8px 16px; color: #cfe0d3; font-size: 13px; text-decoration: none;
+    border-bottom: 2px solid transparent; margin-bottom: -1px;
+  }
+  .tabs a:hover { color: #fff; }
+  .tabs a.active { color: #fff; font-weight: 600; border-bottom-color: #c98a2c; }
+  main { max-width: 1080px; margin: 0 auto; padding: 24px 28px 60px; }
+  .card {
+    background: #fff; border: 1px solid #e3e0d8; border-radius: 10px;
+    padding: 18px 20px; margin-bottom: 20px;
+  }
+  .card h2 { margin: 0 0 4px; font-size: 15px; }
+  .card .subtitle { margin: 0 0 14px; font-size: 12px; color: #8a8574; }
+  .muted { color: #8a8574; font-size: 12px; }
+  .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px,1fr)); gap: 12px; margin-bottom: 16px; }
+  .stat { background: #f6f5f0; border-radius: 8px; padding: 10px 12px; }
+  .stat .label { font-size: 11px; color: #8a8574; text-transform: uppercase; letter-spacing: .04em; }
+  .stat .value { font-size: 20px; font-weight: 600; margin-top: 2px; }
+  canvas { max-height: 320px; }
+  .notice {
+    background: #fbeed9; border: 1px solid #eecf9c; color: #6b4c17;
+    border-radius: 8px; padding: 10px 12px; font-size: 12px; margin-top: 10px;
+  }
+  .notice.error { background: #fbe9e6; border-color: #eab5ab; color: #7a2c1d; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid #ece9e1; }
+  th { color: #6b6558; font-weight: 600; }
+  button {
+    font: inherit; padding: 8px 14px; border: none; border-radius: 6px;
+    background: #2f6b45; color: #fff; cursor: pointer;
+  }
+  button:hover { opacity: 0.92; }
+  .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; background: #eef1ea; font-size: 11px; color: #3d5c45; margin-right: 4px; }
+  button.secondary { background: #6b6558; }
+  select, input[type=text] {
+    font: inherit; padding: 7px 9px; border: 1px solid #cfcabc; border-radius: 6px; background: #fff;
+  }
+  .signal { border: 1px solid #e3e0d8; border-radius: 8px; padding: 12px 14px; margin-bottom: 12px; }
+  .signal-head { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 8px; }
+  .signal-head .kw { font-weight: 600; font-size: 14px; }
+  .signal-stats { font-size: 12px; color: #6b6558; margin-top: 3px; }
+  .corrob { display: inline-block; padding: 1px 7px; border-radius: 999px; font-size: 10px; font-weight: 600; margin-left: 6px; }
+  .corrob.yes { background: #eaf3ec; color: #2f6b45; }
+  .corrob.no { background: #f1efe9; color: #6b6558; }
+  .corrob.unavailable { background: #f1efe9; color: #a89f8c; }
+  .sample-post { font-size: 12px; color: #6b6558; border-left: 2px solid #e3e0d8; padding: 4px 10px; margin: 8px 0; }
+  .sample-post a { color: #6b6558; }
+  .signal-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>KeHe Trend Tool</h1>
+  <p>Follow, compare, and predict food &amp; beverage product trends.</p>
+  <nav class="tabs">
+    <a href="index.html" class="active">Dashboard</a>
+    <a href="catalog.html">Catalog</a>
+  </nav>
+</header>
+
+<main>
+
+  <div class="card">
+    <h2>What's trending in food &amp; beverage</h2>
+    <p class="subtitle">Google Trends search interest, US, last 12 months. Keywords are drawn from the categories
+       actually in your loaded catalog.</p>
+    <canvas id="trends-chart" style="display:none;"></canvas>
+    <div id="trends-status" class="muted">Loading&hellip;</div>
+  </div>
+
+  <div class="card">
+    <h2>Viral moment signals</h2>
+    <p class="subtitle">Scans Bluesky for a mention spike in each catalog category, cross-checks it against Google
+       Trends, and lists it here for a person to confirm or dismiss. Nothing here is written to a product's
+       "Viral trend" field until someone confirms it.</p>
+    <div class="signal-actions" style="margin-top:0;">
+      <button id="scan-btn" onclick="scanSignals()">Scan Bluesky for new signals</button>
+      <span id="scan-status" class="muted"></span>
+    </div>
+    <p class="muted" style="margin:8px 0 0;">This runs a live check against Bluesky's public API for each catalog
+       category, right now. It only creates a new signal below if there's an actual mention spike happening at the
+       moment you click &mdash; most of the time that means "0 new signals," which is expected, not a bug. (The
+       example signal shown below was inserted for demo purposes to show what a flagged spike looks like, not
+       produced by this button &mdash; see the README.)</p>
+    <div id="signals-notice"></div>
+    <div id="signals-list" style="margin-top:14px;"></div>
+  </div>
+
+  <div class="card">
+    <h2>Catalog &amp; sales overview</h2>
+    <p class="subtitle">Baseline sales and forecasts, for the products that have sales history loaded.</p>
+    <div class="stat-grid" id="summary-stats"></div>
+    <canvas id="baseline-chart" style="display:none;"></canvas>
+    <div id="summary-notice"></div>
+  </div>
+
+</main>
+
+<script>
+// Same-origin when served by the FastAPI app itself (production and `uvicorn`
+// serving the frontend too); falls back to localhost:8000 only when this file
+// is opened directly from disk (file://) for local frontend-only editing.
+const API_BASE = location.protocol.startsWith("http") ? "" : "http://localhost:8000";
+
+async function loadTrends() {
+  const statusEl = document.getElementById("trends-status");
+  const canvas = document.getElementById("trends-chart");
+  try {
+    const res = await fetch(`${API_BASE}/trends/foodbev`);
+    const data = await res.json();
+
+    if (!data.available) {
+      canvas.style.display = "none";
+      statusEl.innerHTML = `<div class="notice">Live trend data isn't available right now: ${data.reason || "unknown reason"}.
+        This calls Google Trends directly and needs normal internet access to trends.google.com; it will work once this
+        tool is running somewhere with that access (it was built and tested in a sandbox that blocks general web traffic,
+        so this specific call couldn't be verified live there).</div>`;
+      return;
+    }
+    if (!data.series.length) {
+      statusEl.innerHTML = `<p class="muted">No trend data returned for the current catalog's categories.</p>`;
+      return;
+    }
+
+    statusEl.innerHTML = "";
+    canvas.style.display = "block";
+    const palette = ["#2f6b45", "#c98a2c", "#7a4fb5", "#2c7fa6", "#b5473f"];
+    new Chart(canvas, {
+      type: "line",
+      data: {
+        labels: data.series[0].dates,
+        datasets: data.series.map((s, i) => ({
+          label: s.keyword,
+          data: s.interest,
+          borderColor: palette[i % palette.length],
+          backgroundColor: "transparent",
+          tension: 0.25,
+        })),
+      },
+      options: {
+        responsive: true,
+        interaction: { mode: "index", intersect: false },
+        scales: { y: { title: { display: true, text: "Relative search interest (0-100)" }, min: 0 } },
+      },
+    });
+  } catch (e) {
+    canvas.style.display = "none";
+    statusEl.innerHTML = `<div class="notice error">Could not load trend data: ${e.message}</div>`;
+  }
+}
+
+function escapeHtml(s) {
+  return (s ?? "").toString()
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function corrobBadge(status) {
+  const labels = { yes: "Trends corroborated", no: "Trends: no corroboration", unavailable: "Trends: unavailable" };
+  const cls = ["yes", "no", "unavailable"].includes(status) ? status : "unavailable";
+  return `<span class="corrob ${cls}">${labels[cls]}</span>`;
+}
+
+function renderSignal(s) {
+  const productOptions = s.matching_products.length
+    ? s.matching_products.map(p => `<option value="${p.id}">${escapeHtml(p.name)} (${escapeHtml(p.sku)})</option>`).join("")
+    : `<option value="">No catalog products in this category</option>`;
+
+  const posts = s.sample_posts.slice(0, 3).map(p => `
+    <div class="sample-post">
+      &ldquo;${escapeHtml(p.text)}&rdquo; &mdash; <a href="${escapeHtml(p.url)}" target="_blank" rel="noopener">${escapeHtml(p.author)}</a>
+    </div>
+  `).join("");
+
+  return `
+    <div class="signal" id="signal-${s.id}">
+      <div class="signal-head">
+        <div><span class="kw">${escapeHtml(s.keyword)}</span>${corrobBadge(s.trends_corroborated)}</div>
+        <div class="muted">${s.window_start} &rarr; ${s.window_end}</div>
+      </div>
+      <div class="signal-stats">
+        ~${s.mention_count} Bluesky mentions over the last 3 days, vs a baseline of ~${s.baseline_mean.toFixed(1)}/day
+        (z-score ${s.z_score.toFixed(1)}, threshold 2.5).
+      </div>
+      ${posts || `<p class="muted" style="margin:8px 0 0;">No sample posts captured.</p>`}
+      <div class="signal-actions">
+        <select id="signal-${s.id}-product">${productOptions}</select>
+        <input type="text" id="signal-${s.id}-note" placeholder="Optional note">
+        <button onclick="confirmSignal(${s.id})">Confirm &amp; apply to product</button>
+        <button class="secondary" onclick="dismissSignal(${s.id})">Dismiss</button>
+      </div>
+    </div>
+  `;
+}
+
+async function loadSignals() {
+  const listEl = document.getElementById("signals-list");
+  try {
+    const res = await fetch(`${API_BASE}/signals?status=needs_review`);
+    const rows = await res.json();
+    listEl.innerHTML = rows.length
+      ? rows.map(renderSignal).join("")
+      : `<p class="muted">No open signals right now. Run a scan to check for new ones.</p>`;
+  } catch (e) {
+    listEl.innerHTML = `<div class="notice error">Could not load signals: ${e.message}</div>`;
+  }
+}
+
+async function scanSignals() {
+  const btn = document.getElementById("scan-btn");
+  const statusEl = document.getElementById("scan-status");
+  const noticeEl = document.getElementById("signals-notice");
+  btn.disabled = true;
+  statusEl.textContent = "Scanning…";
+  noticeEl.innerHTML = "";
+  try {
+    const res = await fetch(`${API_BASE}/signals/scan`, { method: "POST" });
+    const data = await res.json();
+    if (data.reason) {
+      noticeEl.innerHTML = `<div class="notice">Bluesky wasn't reachable: ${data.reason} This calls
+        public.api.bsky.app directly and needs normal internet access to Bluesky's public API; it will work once this
+        tool is running somewhere with that access (it was built and tested in a sandbox that blocks general web
+        traffic, so this specific call couldn't be verified live there).</div>`;
+      statusEl.textContent = "";
+    } else {
+      statusEl.textContent = `Checked ${data.keywords_checked.length} keyword(s), found ${data.signals_created} new signal(s).`;
+    }
+  } catch (e) {
+    noticeEl.innerHTML = `<div class="notice error">Scan failed: ${e.message}</div>`;
+    statusEl.textContent = "";
+  } finally {
+    btn.disabled = false;
+    await loadSignals();
+  }
+}
+
+async function confirmSignal(id) {
+  const productSel = document.getElementById(`signal-${id}-product`);
+  const noteEl = document.getElementById(`signal-${id}-note`);
+  if (!productSel.value) {
+    alert("Pick a product to apply this signal to first.");
+    return;
+  }
+  const res = await fetch(`${API_BASE}/signals/${id}/confirm`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ product_id: parseInt(productSel.value, 10), note: noteEl.value || null }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    alert(`Could not confirm signal: ${err.detail || res.statusText}`);
+    return;
+  }
+  await loadSignals();
+}
+
+async function dismissSignal(id) {
+  const noteEl = document.getElementById(`signal-${id}-note`);
+  const params = new URLSearchParams();
+  if (noteEl.value) params.set("note", noteEl.value);
+  const res = await fetch(`${API_BASE}/signals/${id}/dismiss?${params.toString()}`, { method: "POST" });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    alert(`Could not dismiss signal: ${err.detail || res.statusText}`);
+    return;
+  }
+  await loadSignals();
+}
+
+async function loadSummary() {
+  const res = await fetch(`${API_BASE}/dashboard/summary`);
+  const data = await res.json();
+
+  document.getElementById("summary-stats").innerHTML = `
+    <div class="stat"><div class="label">Total products loaded</div><div class="value">${data.total_products}</div></div>
+    <div class="stat"><div class="label">With sales data</div><div class="value">${data.products_with_sales_data}</div></div>
+    <div class="stat"><div class="label">Catalog-only (no sales data)</div><div class="value">${data.products_without_sales_data}</div></div>
+  `;
+
+  const canvas = document.getElementById("baseline-chart");
+  const noticeEl = document.getElementById("summary-notice");
+
+  if (!data.top_products_by_baseline.length) {
+    canvas.style.display = "none";
+    noticeEl.innerHTML = data.total_products
+      ? `<p class="muted">None of the ${data.total_products} loaded products have sales history yet. Upload a sales CSV from the
+         <a href="catalog.html">catalog page</a> to see baseline and forecast charts here.</p>`
+      : `<p class="muted">No products loaded yet. Head to the <a href="catalog.html">catalog page</a> to upload a catalog and sales history.</p>`;
+    return;
+  }
+
+  canvas.style.display = "block";
+  const products = data.top_products_by_baseline;
+
+  // Pull each product's forecast total (next-period sum across regions) for a baseline-vs-forecast comparison.
+  const forecastTotals = await Promise.all(products.map(async p => {
+    const res = await fetch(`${API_BASE}/products/${p.id}`);
+    const detail = await res.json();
+    if (!detail.forecast.length) return null;
+    const firstPeriod = detail.forecast.map(f => f.period_date).sort()[0];
+    return detail.forecast.filter(f => f.period_date === firstPeriod).reduce((sum, f) => sum + f.predicted_units, 0);
+  }));
+
+  new Chart(canvas, {
+    type: "bar",
+    data: {
+      labels: products.map(p => p.name),
+      datasets: [
+        { label: "Baseline sales (per period)", data: products.map(p => p.baseline_sales), backgroundColor: "#2f6b45" },
+        { label: "Forecasted next period (all regions)", data: forecastTotals, backgroundColor: "#c98a2c" },
+      ],
+    },
+    options: {
+      responsive: true,
+      indexAxis: "y",
+      scales: { x: { title: { display: true, text: "Units" } } },
+    },
+  });
+
+  if (data.products_without_sales_data > 0) {
+    noticeEl.innerHTML = `<div class="notice">${data.products_without_sales_data} catalog item(s) don't have sales data yet
+      and aren't shown in this chart, only the ${data.products_with_sales_data} with sales history are. Check the
+      <a href="catalog.html">catalog page</a> to see which.</div>`;
+  }
+}
+
+loadTrends();
+loadSummary();
+loadSignals();
+</script>
+
+</body>
+</html>

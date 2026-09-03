@@ -1,0 +1,15 @@
+fastapi==0.141.1
+uvicorn==0.46.0
+SQLAlchemy==2.0.52
+pandas==2.3.3
+statsforecast==2.1.1
+rank-bm25==0.2.2
+pytrends==4.9.2
+requests==2.33.1
+python-multipart==0.0.26
+Jinja2==3.1.6
+python-dateutil==2.9.0.post0
+pydantic==2.13.3
+
+# dev/test only, not needed to run the app
+pytest==9.1.1

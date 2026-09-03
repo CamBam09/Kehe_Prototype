@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+*.pyc
+backend/data/kehe_trends.db
+backend/data/catalog_demo.csv
+backend/data/sales_demo.csv
+.DS_Store
