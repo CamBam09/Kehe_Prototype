@@ -78,17 +78,27 @@ grow into `pgvector` for the semantic search upgrade described below.
 
 ## Deploying (Render)
 
-`render.yaml` defines a free web service (`kehe-trend-tool`) plus a managed
-free Postgres database (`kehe-trend-db`), wired together via `DATABASE_URL`.
+`render.yaml` defines three resources, deployed and updated independently:
+
+- `kehe-trend-tool` — the FastAPI backend + its own dashboard/catalog
+  frontend (`frontend/`), a free Python web service.
+- `kehe-trend-db` — a managed free Postgres database, wired to the web
+  service via `DATABASE_URL`.
+- `kehe-trend-intelligence` — the standalone KeHE Trend Intelligence
+  dashboard (`trend-intelligence/index.html`), a free static site with no
+  backend dependency and its own separate URL/deploy lifecycle.
+
 To deploy:
 
 1. In the Render dashboard, connect this GitHub repo (one-time OAuth step
    that only the repo owner can do) and let Render pick up `render.yaml`.
-   Render will ask you to approve creating the new Postgres database the
-   first time this blueprint change syncs — that approval has to happen
-   in the dashboard, it can't be scripted.
-2. Render builds and serves at `https://kehe-trend-tool.onrender.com`
-   (or whatever URL Render assigns if that name is taken).
+   Render will ask you to approve creating each new resource the first
+   time this blueprint change syncs — that approval has to happen in the
+   dashboard, it can't be scripted.
+2. Render builds and serves the backend at
+   `https://kehe-trend-tool.onrender.com` and Trend Intelligence at
+   `https://kehe-trend-intelligence.onrender.com` (or whatever URLs Render
+   assigns if those names are taken).
 
 **Why Postgres, not the default SQLite file:** Render's free web service has
 an *ephemeral* disk — anything written to it (including a catalog uploaded
