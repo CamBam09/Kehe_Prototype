@@ -76,6 +76,23 @@ export DATABASE_URL="postgresql+psycopg2://user:pass@host:5432/kehe_trends"
 recommended target long-term, both for concurrent access and because it can
 grow into `pgvector` for the semantic search upgrade described below.
 
+## Deploying (Render)
+
+`render.yaml` defines a single free web service (`kehe-trend-tool`) that
+installs `backend/requirements.txt`, runs `startup_seed.py` to seed the
+database, then serves the API with uvicorn. To deploy:
+
+1. In the Render dashboard, connect this GitHub repo (one-time OAuth step
+   that only the repo owner can do) and let Render pick up `render.yaml`.
+2. Render builds and serves at `https://kehe-trend-tool.onrender.com`
+   (or whatever URL Render assigns if that name is taken).
+
+Render's free plan spins a web service down after ~15 minutes idle, which
+means the first request after a lull is slow (cold start). A scheduled
+GitHub Action (`.github/workflows/keepalive.yml`) pings `/health` every
+10 minutes to keep the service warm; update the URL in that workflow if
+Render assigns a different hostname.
+
 ## Trying it with example data
 
 Two separate datasets, kept deliberately separate and tagged by `data_source`
