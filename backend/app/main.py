@@ -49,7 +49,9 @@ def _seed_on_startup():
 
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    # engine.url.get_backend_name() is just the dialect ("postgresql" /
+    # "sqlite") - never the host, credentials, or database name.
+    return {"status": "ok", "db": engine.url.get_backend_name()}
 
 
 @app.post("/ingest/catalog", response_model=IngestSummary)
