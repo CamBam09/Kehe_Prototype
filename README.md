@@ -78,16 +78,29 @@ grow into `pgvector` for the semantic search upgrade described below.
 
 ## Deploying (Render)
 
-`render.yaml` defines a single free web service (`kehe-trend-tool`) that
-installs `backend/requirements.txt`, runs `startup_seed.py` to seed the
-database, then serves the API with uvicorn. To deploy:
+`render.yaml` defines a free web service (`kehe-trend-tool`) plus a managed
+free Postgres database (`kehe-trend-db`), wired together via `DATABASE_URL`.
+To deploy:
 
 1. In the Render dashboard, connect this GitHub repo (one-time OAuth step
    that only the repo owner can do) and let Render pick up `render.yaml`.
+   Render will ask you to approve creating the new Postgres database the
+   first time this blueprint change syncs — that approval has to happen
+   in the dashboard, it can't be scripted.
 2. Render builds and serves at `https://kehe-trend-tool.onrender.com`
    (or whatever URL Render assigns if that name is taken).
 
-Render's free plan spins a web service down after ~15 minutes idle, which
+**Why Postgres, not the default SQLite file:** Render's free web service has
+an *ephemeral* disk — anything written to it (including a catalog uploaded
+through the app) is wiped on every restart/redeploy. Once `DATABASE_URL`
+points at `kehe-trend-db`, uploads persist across restarts. `startup_seed.py`
+only seeds the baked-in demo/KeHE catalog when the products table is empty,
+so it won't clobber real data once Postgres is live. Render's free Postgres
+plan expires after a set trial period, after which it needs upgrading to a
+paid plan to keep the data — check the current terms in the Render dashboard
+before relying on it long-term.
+
+Render's free web service plan also spins down after ~15 minutes idle, which
 means the first request after a lull is slow (cold start). A scheduled
 GitHub Action (`.github/workflows/keepalive.yml`) pings `/health` every
 10 minutes to keep the service warm; update the URL in that workflow if
